@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  # FastAPI Application (local development)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: langgraph_app
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - LANGSMITH_API_KEY=${LANGSMITH_API_KEY:-}
+      - LANGSMITH_PROJECT=${LANGSMITH_PROJECT:-langgraph-demo}
+      - DATABASE_URL=postgresql+asyncpg://postgres:123456@host.docker.internal:5432/langgraphdb
+      - SYNC_DATABASE_URL=postgresql://postgres:123456@host.docker.internal:5432/langgraphdb
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./app:/app/app
+      - ./frontend:/app/frontend:ro
