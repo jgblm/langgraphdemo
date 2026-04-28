@@ -306,7 +306,8 @@ async def generate_tags(state: MarketingAnalysisState) -> MarketingAnalysisState
 
 async def generate_persona(state: MarketingAnalysisState) -> MarketingAnalysisState:
     """Step 2: Generate personas based on tags."""
-    logger.info(f"[{state['task_id']}] Generating persona from {len(state.get('tags', []))} tags")
+    tags = state.get("tags") or []
+    logger.info(f"[{state['task_id']}] Generating persona from {len(tags)} tags")
 
     if state.get("error"):
         return state
@@ -334,7 +335,7 @@ async def generate_persona(state: MarketingAnalysisState) -> MarketingAnalysisSt
         prompt = PERSONA_GENERATION_PROMPT.format(
             brand=state["brand"],
             region=state["region"],
-            tags=", ".join(state.get("tags", []))
+            tags=", ".join(tags)
         )
 
         messages = [
@@ -349,7 +350,7 @@ async def generate_persona(state: MarketingAnalysisState) -> MarketingAnalysisSt
                 messages,
                 task_id=task_id,
                 step_name="generate_persona",
-                metadata={"step": "persona", "tags_count": len(state.get("tags", []))}
+                metadata={"step": "persona", "tags_count": len(tags)}
             )
         else:
             response = await llm.ainvoke(messages)
@@ -399,7 +400,8 @@ async def generate_persona(state: MarketingAnalysisState) -> MarketingAnalysisSt
 
 async def generate_scenes(state: MarketingAnalysisState) -> MarketingAnalysisState:
     """Step 3: Generate marketing scenes based on personas."""
-    logger.info(f"[{state['task_id']}] Generating scenes from {len(state.get('persona', []))} personas")
+    personas = state.get("persona") or []
+    logger.info(f"[{state['task_id']}] Generating scenes from {len(personas)} personas")
 
     if state.get("error"):
         return state
@@ -419,7 +421,7 @@ async def generate_scenes(state: MarketingAnalysisState) -> MarketingAnalysisSta
         prompt = SCENE_GENERATION_PROMPT.format(
             brand=state["brand"],
             region=state["region"],
-            personas=json.dumps(state.get("persona", []), ensure_ascii=False, indent=2)
+            personas=json.dumps(personas, ensure_ascii=False, indent=2)
         )
 
         messages = [
@@ -434,7 +436,7 @@ async def generate_scenes(state: MarketingAnalysisState) -> MarketingAnalysisSta
                 messages,
                 task_id=task_id,
                 step_name="generate_scenes",
-                metadata={"step": "scenes", "personas_count": len(state.get("persona", []))}
+                metadata={"step": "scenes", "personas_count": len(personas)}
             )
         else:
             response = await llm.ainvoke(messages)
