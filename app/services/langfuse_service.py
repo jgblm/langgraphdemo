@@ -114,16 +114,17 @@ class LangfuseService:
             return None
 
         try:
-            span = self._client.span(
+            # Use the trace context manager for newer langfuse API
+            trace = self._client.trace(
                 name=name,
                 input=input,
                 metadata=metadata,
                 session_id=session_id,
                 user_id=user_id,
             )
-            return span
+            return trace
         except Exception as e:
-            logger.warning(f"Failed to create Langfuse span: {e}")
+            logger.warning(f"Failed to create Langfuse trace: {e}")
             return None
 
     def update_span(
@@ -144,7 +145,8 @@ class LangfuseService:
                     span.metadata.update(metadata)
                 else:
                     span.metadata = metadata
-            span.end()
+            if hasattr(span, 'end'):
+                span.end()
         except Exception as e:
             logger.warning(f"Failed to update Langfuse span: {e}")
 
@@ -185,27 +187,31 @@ class LangfuseService:
         if not self._enabled:
             return await model.ainvoke(messages)
 
-        generation = self.create_generation(
-            name=step_name,
-            input=str(messages),
-            model=settings.openai_model,
-            metadata=metadata,
-            session_id=task_id,
-        )
-
         try:
             response = await model.ainvoke(messages)
-            self.update_generation(
-                generation,
+            
+            # Log to langfuse after successful call
+            self._client.generation(
+                name=step_name,
+                input=str(messages),
                 output=str(response.content),
+                model=settings.openai_model,
+                metadata=metadata,
+                session_id=task_id,
             )
             return response
         except Exception as e:
-            if generation:
-                self.update_generation(
-                    generation,
-                    output=f"Error: {str(e)}",
+            # Log error to langfuse
+            try:
+                self._client.event(
+                    name=f"{step_name}_error",
+                    message=str(e),
+                    level="ERROR",
+                    metadata={"task_id": task_id},
+                    session_id=task_id,
                 )
+            except:
+                pass
             raise
 
     async def run_workflow_with_trace(
@@ -221,20 +227,37 @@ class LangfuseService:
 
         task_id = trace_id or input.get("task_id", "unknown")
         
-        with self._client.start_as_current_span(
-            name="marketing_analysis_workflow",
-            input=input,
-            metadata=metadata,
-            session_id=task_id,
-        ) as span:
+        try:
+            result = await workflow.ainvoke(input)
+            
+            # Log completion
+            self._client.event(
+                name="workflow_completed",
+                message="Marketing analysis workflow completed",
+                metadata={
+                    "task_id": task_id,
+                    "result_summary": {
+                        "tags_count": len(result.get("tags", [])),
+                        "personas_count": len(result.get("persona", [])),
+                        "scenes_count": len(result.get("scenes", [])),
+                    }
+                },
+                session_id=task_id,
+            )
+            return result
+        except Exception as e:
+            # Log error
             try:
-                result = await workflow.ainvoke(input)
-                span.output = result
-                return result
-            except Exception as e:
-                span.level = "ERROR"
-                span.metadata = {"error": str(e)}
-                raise
+                self._client.event(
+                    name="workflow_error",
+                    message=str(e),
+                    level="ERROR",
+                    metadata={"task_id": task_id},
+                    session_id=task_id,
+                )
+            except:
+                pass
+            raise
 
     def get_trace_url(self, trace_id: str) -> Optional[str]:
         """Get the URL for a trace in Langfuse dashboard."""
@@ -257,7 +280,7 @@ class LangfuseService:
         
         try:
             # Simple health check - try to create an event
-            self.create_event(
+            self._client.event(
                 name="health_check",
                 message="Health check ping",
                 level="DEBUG",

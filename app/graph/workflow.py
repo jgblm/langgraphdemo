@@ -261,14 +261,6 @@ async def generate_tags(state: MarketingAnalysisState) -> MarketingAnalysisState
 
     task_id = state['task_id']
 
-    # Create Langfuse span for this step
-    span = langfuse_service.create_span(
-        name="generate_tags",
-        input={"brand": state["brand"], "region": state["region"]},
-        metadata={"task_id": task_id},
-        session_id=task_id,
-    )
-
     try:
         llm = create_llm()
 
@@ -289,7 +281,7 @@ async def generate_tags(state: MarketingAnalysisState) -> MarketingAnalysisState
                 messages,
                 task_id=task_id,
                 step_name="generate_tags",
-                metadata={"step": "tags"}
+                metadata={"step": "tags", "brand": state["brand"], "region": state["region"]}
             )
         else:
             response = await llm.ainvoke(messages)
@@ -302,19 +294,12 @@ async def generate_tags(state: MarketingAnalysisState) -> MarketingAnalysisState
         state["tags_raw"] = response_content
         state["current_step"] = "tags_completed"
 
-        # Update span with output
-        langfuse_service.update_span(
-            span,
-            output={"tags": state["tags"], "count": len(state["tags"])}
-        )
-
         logger.info(f"[{state['task_id']}] Generated {len(state['tags'])} tags")
 
     except Exception as e:
         logger.error(f"[{state['task_id']}] Error generating tags: {str(e)}", exc_info=True)
         state["error"] = str(e)
         state["current_step"] = "failed"
-        langfuse_service.update_span(span, output={"error": str(e)})
 
     return state
 
@@ -327,14 +312,6 @@ async def generate_persona(state: MarketingAnalysisState) -> MarketingAnalysisSt
         return state
 
     task_id = state['task_id']
-
-    # Create Langfuse span for this step
-    span = langfuse_service.create_span(
-        name="generate_persona",
-        input={"brand": state["brand"], "region": state["region"], "tags": state.get("tags", [])},
-        metadata={"task_id": task_id},
-        session_id=task_id,
-    )
 
     persona_expected_fields = [
         "name", "姓名",
@@ -410,19 +387,12 @@ async def generate_persona(state: MarketingAnalysisState) -> MarketingAnalysisSt
         state["persona_raw"] = response_content
         state["current_step"] = "persona_completed"
 
-        # Update span with output
-        langfuse_service.update_span(
-            span,
-            output={"personas": state["persona"], "count": len(state["persona"])}
-        )
-
         logger.info(f"[{state['task_id']}] Generated {len(state['persona'])} personas (from {len(persona_list) if isinstance(persona, list) else 0} items)")
 
     except Exception as e:
         logger.error(f"[{state['task_id']}] Error generating persona: {str(e)}", exc_info=True)
         state["error"] = str(e)
         state["current_step"] = "failed"
-        langfuse_service.update_span(span, output={"error": str(e)})
 
     return state
 
@@ -435,18 +405,6 @@ async def generate_scenes(state: MarketingAnalysisState) -> MarketingAnalysisSta
         return state
 
     task_id = state['task_id']
-
-    # Create Langfuse span for this step
-    span = langfuse_service.create_span(
-        name="generate_scenes",
-        input={
-            "brand": state["brand"],
-            "region": state["region"],
-            "personas_count": len(state.get("persona", []))
-        },
-        metadata={"task_id": task_id},
-        session_id=task_id,
-    )
 
     scene_expected_fields = [
         "name", "场景名称", "target_persona", "目标人群",
@@ -500,19 +458,12 @@ async def generate_scenes(state: MarketingAnalysisState) -> MarketingAnalysisSta
         state["scenes_raw"] = response_content
         state["current_step"] = "completed"
 
-        # Update span with output
-        langfuse_service.update_span(
-            span,
-            output={"scenes": state["scenes"], "count": len(state["scenes"])}
-        )
-
         logger.info(f"[{state['task_id']}] Generated {len(state['scenes'])} scenes")
 
     except Exception as e:
         logger.error(f"[{state['task_id']}] Error generating scenes: {str(e)}", exc_info=True)
         state["error"] = str(e)
         state["current_step"] = "failed"
-        langfuse_service.update_span(span, output={"error": str(e)})
 
     return state
 
