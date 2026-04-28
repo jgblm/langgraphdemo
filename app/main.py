@@ -39,11 +39,9 @@ async def lifespan(app: FastAPI):
 
     if settings.is_langfuse_configured:
         from app.services.langfuse_service import langfuse_service
-        logger.info("Langfuse monitoring enabled")
-        if langfuse_service.health_check():
-            logger.info("Langfuse health check passed")
-        else:
-            logger.warning("Langfuse health check failed")
+        logger.info(f"Langfuse monitoring enabled (host: {settings.langfuse_host})")
+        # Health check is optional - Langfuse may not be reachable at startup
+        # but will work once network is available
     else:
         logger.warning("Langfuse not configured, monitoring disabled")
 
