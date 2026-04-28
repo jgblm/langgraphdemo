@@ -16,6 +16,7 @@ from app.graph.prompts import (
     SYSTEM_PROMPT
 )
 from app.services.langsmith_service import langsmith_service
+from app.services.langfuse_service import langfuse_service
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +259,16 @@ async def generate_tags(state: MarketingAnalysisState) -> MarketingAnalysisState
     """Step 1: Generate marketing tags based on brand and region."""
     logger.info(f"[{state['task_id']}] Generating tags for {state['brand']} in {state['region']}")
 
+    task_id = state['task_id']
+
+    # Create Langfuse span for this step
+    span = langfuse_service.create_span(
+        name="generate_tags",
+        input={"brand": state["brand"], "region": state["region"]},
+        metadata={"task_id": task_id},
+        session_id=task_id,
+    )
+
     try:
         llm = create_llm()
 
@@ -271,7 +282,18 @@ async def generate_tags(state: MarketingAnalysisState) -> MarketingAnalysisState
             HumanMessage(content=prompt)
         ]
 
-        response = await llm.ainvoke(messages)
+        # Use Langfuse tracing if enabled
+        if langfuse_service.is_enabled:
+            response = await langfuse_service.generate_with_trace(
+                llm,
+                messages,
+                task_id=task_id,
+                step_name="generate_tags",
+                metadata={"step": "tags"}
+            )
+        else:
+            response = await llm.ainvoke(messages)
+        
         response_content = response.content
 
         tags = parse_json_response(response_content)
@@ -280,12 +302,19 @@ async def generate_tags(state: MarketingAnalysisState) -> MarketingAnalysisState
         state["tags_raw"] = response_content
         state["current_step"] = "tags_completed"
 
+        # Update span with output
+        langfuse_service.update_span(
+            span,
+            output={"tags": state["tags"], "count": len(state["tags"])}
+        )
+
         logger.info(f"[{state['task_id']}] Generated {len(state['tags'])} tags")
 
     except Exception as e:
         logger.error(f"[{state['task_id']}] Error generating tags: {str(e)}", exc_info=True)
         state["error"] = str(e)
         state["current_step"] = "failed"
+        langfuse_service.update_span(span, output={"error": str(e)})
 
     return state
 
@@ -296,6 +325,16 @@ async def generate_persona(state: MarketingAnalysisState) -> MarketingAnalysisSt
 
     if state.get("error"):
         return state
+
+    task_id = state['task_id']
+
+    # Create Langfuse span for this step
+    span = langfuse_service.create_span(
+        name="generate_persona",
+        input={"brand": state["brand"], "region": state["region"], "tags": state.get("tags", [])},
+        metadata={"task_id": task_id},
+        session_id=task_id,
+    )
 
     persona_expected_fields = [
         "name", "姓名",
@@ -326,7 +365,18 @@ async def generate_persona(state: MarketingAnalysisState) -> MarketingAnalysisSt
             HumanMessage(content=prompt)
         ]
 
-        response = await llm.ainvoke(messages)
+        # Use Langfuse tracing if enabled
+        if langfuse_service.is_enabled:
+            response = await langfuse_service.generate_with_trace(
+                llm,
+                messages,
+                task_id=task_id,
+                step_name="generate_persona",
+                metadata={"step": "persona", "tags_count": len(state.get("tags", []))}
+            )
+        else:
+            response = await llm.ainvoke(messages)
+        
         response_content = response.content
 
         persona = parse_json_response(response_content, expected_dict_fields=persona_expected_fields)
@@ -360,12 +410,19 @@ async def generate_persona(state: MarketingAnalysisState) -> MarketingAnalysisSt
         state["persona_raw"] = response_content
         state["current_step"] = "persona_completed"
 
+        # Update span with output
+        langfuse_service.update_span(
+            span,
+            output={"personas": state["persona"], "count": len(state["persona"])}
+        )
+
         logger.info(f"[{state['task_id']}] Generated {len(state['persona'])} personas (from {len(persona_list) if isinstance(persona, list) else 0} items)")
 
     except Exception as e:
         logger.error(f"[{state['task_id']}] Error generating persona: {str(e)}", exc_info=True)
         state["error"] = str(e)
         state["current_step"] = "failed"
+        langfuse_service.update_span(span, output={"error": str(e)})
 
     return state
 
@@ -376,6 +433,20 @@ async def generate_scenes(state: MarketingAnalysisState) -> MarketingAnalysisSta
 
     if state.get("error"):
         return state
+
+    task_id = state['task_id']
+
+    # Create Langfuse span for this step
+    span = langfuse_service.create_span(
+        name="generate_scenes",
+        input={
+            "brand": state["brand"],
+            "region": state["region"],
+            "personas_count": len(state.get("persona", []))
+        },
+        metadata={"task_id": task_id},
+        session_id=task_id,
+    )
 
     scene_expected_fields = [
         "name", "场景名称", "target_persona", "目标人群",
@@ -398,7 +469,18 @@ async def generate_scenes(state: MarketingAnalysisState) -> MarketingAnalysisSta
             HumanMessage(content=prompt)
         ]
 
-        response = await llm.ainvoke(messages)
+        # Use Langfuse tracing if enabled
+        if langfuse_service.is_enabled:
+            response = await langfuse_service.generate_with_trace(
+                llm,
+                messages,
+                task_id=task_id,
+                step_name="generate_scenes",
+                metadata={"step": "scenes", "personas_count": len(state.get("persona", []))}
+            )
+        else:
+            response = await llm.ainvoke(messages)
+        
         response_content = response.content
         
         logger.info(f"[{state['task_id']}] Raw scenes response (first 500 chars): {response_content[:500]}")
@@ -418,12 +500,19 @@ async def generate_scenes(state: MarketingAnalysisState) -> MarketingAnalysisSta
         state["scenes_raw"] = response_content
         state["current_step"] = "completed"
 
+        # Update span with output
+        langfuse_service.update_span(
+            span,
+            output={"scenes": state["scenes"], "count": len(state["scenes"])}
+        )
+
         logger.info(f"[{state['task_id']}] Generated {len(state['scenes'])} scenes")
 
     except Exception as e:
         logger.error(f"[{state['task_id']}] Error generating scenes: {str(e)}", exc_info=True)
         state["error"] = str(e)
         state["current_step"] = "failed"
+        langfuse_service.update_span(span, output={"error": str(e)})
 
     return state
 

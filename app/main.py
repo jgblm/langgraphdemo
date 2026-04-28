@@ -37,6 +37,16 @@ async def lifespan(app: FastAPI):
     else:
         logger.warning("LangSmith not configured, tracing disabled")
 
+    if settings.is_langfuse_configured:
+        from app.services.langfuse_service import langfuse_service
+        logger.info("Langfuse monitoring enabled")
+        if langfuse_service.health_check():
+            logger.info("Langfuse health check passed")
+        else:
+            logger.warning("Langfuse health check failed")
+    else:
+        logger.warning("Langfuse not configured, monitoring disabled")
+
     yield
 
     # Shutdown

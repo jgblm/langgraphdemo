@@ -19,6 +19,9 @@ langchain-core>=0.3.0
 # LangSmith
 langsmith>=0.1.0
 
+# Langfuse (Optional - for tracing and monitoring)
+langfuse>=0.28.0
+
 # Database migration
 alembic>=1.13.0
 
