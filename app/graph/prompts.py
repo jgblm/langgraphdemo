@@ -54,14 +54,13 @@ PERSONA_GENERATION_PROMPT = """你是一位用户研究专家，擅长基于营�
 正确格式示例：
 ```json
 [
-  {"name": "虚构姓名", "age_range": "25-35岁", "gender": "女", "occupation": "互联网产品经理", "income_level": "20-30万/年", "education": "本科", "family_status": "单身或已婚无孩", "consumption_habits": "...", "media_preference": "...", "pain_points": ["痛点1", "痛点2"], "marketing_channels": ["渠道1", "渠道2"], "summary": "一段简短的总结描述"},
-  {"name": "虚构姓名2", "age_range": "30-40岁", "gender": "男", "occupation": "企业高管", "income_level": "50-80万/年", "education": "硕士", "family_status": "已婚有孩", "consumption_habits": "...", "media_preference": "...", "pain_points": ["痛点1", "痛点2"], "marketing_channels": ["渠道1", "渠道2"], "summary": "一段简短的总结描述"}
+  {{"name": "虚构姓名", "age_range": "25-35岁", "gender": "女", "occupation": "互联网产品经理", "income_level": "20-30万/年", "education": "本科", "family_status": "单身或已婚无孩", "consumption_habits": "...", "media_preference": "...", "pain_points": ["痛点1", "痛点2"], "marketing_channels": ["渠道1", "渠道2"], "summary": "一段简短的总结描述"}},
+  {{"name": "虚构姓名2", "age_range": "30-40岁", "gender": "男", "occupation": "企业高管", "income_level": "50-80万/年", "education": "硕士", "family_status": "已婚有孩", "consumption_habits": "...", "media_preference": "...", "pain_points": ["痛点1", "痛点2"], "marketing_channels": ["渠道1", "渠道2"], "summary": "一段简短的总结描述"}}
 ]
 ```
 
 **错误格式（禁止这样输出）**：
 - ["女", "大学生", "25岁", ...]  -- 这是字符串数组，不是对象数组！
-- ["name", "张三", "age", "25岁", ...]  -- 这是扁平数组，禁止！
 - 任何只包含字符串而不是JSON对象的数组
 
 请直接输出一个JSON数组，每个元素必须是完整的JSON对象。"""
@@ -94,13 +93,12 @@ SCENE_GENERATION_PROMPT = """你是一位场景营销策划专家，擅长基于
 正确格式示例：
 ```json
 [
-  {"name": "场景名称", "target_persona": "目标人群", "scene_description": "场景描述", "timing": "时间节点", "marketing_content": "营销内容", "touchpoints": "触达方式", "expected_outcome": "预期效果", "creative_highlight": "创意亮点"},
-  {"name": "场景名称2", "target_persona": "目标人群2", "scene_description": "场景描述2", "timing": "时间节点2", "marketing_content": "营销内容2", "touchpoints": "触达方式2", "expected_outcome": "预期效果2", "creative_highlight": "创意亮点2"}
+  {{"name": "场景名称", "target_persona": "目标人群", "scene_description": "场景描述", "timing": "时间节点", "marketing_content": "营销内容", "touchpoints": "触达方式", "expected_outcome": "预期效果", "creative_highlight": "创意亮点"}},
+  {{"name": "场景名称2", "target_persona": "目标人群2", "scene_description": "场景描述2", "timing": "时间节点2", "marketing_content": "营销内容2", "touchpoints": "触达方式2", "expected_outcome": "预期效果2", "creative_highlight": "创意亮点2"}}
 ]
 ```
 
 **错误格式（禁止这样输出）**：
-- ["name", "场景1", "target_persona", "人群1", ...]  -- 这是扁平数组，禁止！
 - ["场景名称1", "场景名称2", "场景名称3", ...]  -- 这是字符串数组，不是对象数组！
 - 任何只包含字符串而不是JSON对象的数组
 
